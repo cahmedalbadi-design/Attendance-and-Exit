@@ -1,3 +1,213 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تسجيل الحضور</title>
+<style>
+  * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .container {
+    background: #fff;
+    width: 100%;
+    max-width: 480px;
+    border-radius: 18px;
+    padding: 30px 25px;
+    box-shadow: 0 20px 45px rgba(0,0,0,0.3);
+  }
+  h1 {
+    text-align: center;
+    color: #1e3c72;
+    margin: 0 0 25px;
+    font-size: 24px;
+  }
+  .field { margin-bottom: 18px; }
+  label {
+    display: block;
+    margin-bottom: 7px;
+    color: #333;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  input[type="text"] {
+    width: 100%;
+    padding: 12px 14px;
+    border: 2px solid #ddd;
+    border-radius: 10px;
+    font-size: 15px;
+    transition: .3s;
+    outline: none;
+  }
+  input[type="text"]:focus {
+    border-color: #2a5298;
+    box-shadow: 0 0 0 4px rgba(42,82,152,0.1);
+  }
+  .signature-wrap {
+    border: 2px dashed #bbb;
+    border-radius: 10px;
+    background: #fafafa;
+    position: relative;
+    overflow: hidden;
+  }
+  canvas {
+    width: 100%;
+    height: 160px;
+    display: block;
+    cursor: crosshair;
+    touch-action: none;
+  }
+  .clear-btn {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: #ff4757;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .submit-btn {
+    width: 100%;
+    padding: 14px;
+    margin-top: 20px;
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 17px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: .3s;
+  }
+  .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(30,60,114,0.4); }
+  .submit-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+  .msg {
+    margin-top: 15px;
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+    font-weight: 600;
+    display: none;
+  }
+  .msg.success { background: #d4edda; color: #155724; display: block; }
+  .msg.error { background: #f8d7da; color: #721c24; display: block; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1>📋 تسجيل الحضور</h1>
+    
+    <form id="attendanceForm">
+      <div class="field">
+        <label>الرقم</label>
+        <input type="text" id="number" required placeholder="أدخل الرقم">
+      </div>
+      
+      <div class="field">
+        <label>الاسم</label>
+        <input type="text" id="name" required placeholder="أدخل الاسم الكامل">
+      </div>
+      
+      <div class="field">
+        <label>جهة العمل</label>
+        <input type="text" id="department" required placeholder="أدخل جهة العمل / القسم">
+      </div>
+      
+      <div class="field">
+        <label>التوقيع (ارسم بإصبعك أو الماوس)</label>
+        <div class="signature-wrap">
+          <canvas id="signature"></canvas>
+          <button type="button" class="clear-btn" onclick="clearSignature()">مسح</button>
+        </div>
+      </div>
+      
+      <button type="submit" class="submit-btn" id="submitBtn">تسجيل الحضور</button>
+      <div id="msg" class="msg"></div>
+    </form>
+  </div>
+
+<script>
+  // ====== ضع رابط Google Apps Script هنا ======
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxv1gtriXQu2BpWC4eDWjPI9sO8fxfy9XOPK-_z9wTIEGYpwOoKoGunlA6Ht_Dggck/exec";
+
+  // ====== إعداد لوحة التوقيع ======
+  const canvas = document.getElementById('signature');
+  const ctx = canvas.getContext('2d');
+  let drawing = false;
+  let hasSignature = false;
+
+  function resizeCanvas() {
+    const ratio = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * ratio;
+    canvas.height = rect.height * ratio;
+    ctx.scale(ratio, ratio);
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#111';
+    ctx.fillStyle = '#fafafa';
+    ctx.fillRect(0, 0, rect.width, rect.height);
+  }
+  resizeCanvas();
+
+  function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const point = e.touches ? e.touches[0] : e;
+    return {
+      x: point.clientX - rect.left,
+      y: point.clientY - rect.top
+    };
+  }
+
+  function start(e) {
+    e.preventDefault();
+    drawing = true;
+    const p = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+  }
+  function move(e) {
+    if (!drawing) return;
+    e.preventDefault();
+    const p = getPos(e);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    hasSignature = true;
+  }
+  function end(e) {
+    if (!drawing) return;
+    drawing = false;
+    ctx.closePath();
+  }
+
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', move);
+  canvas.addEventListener('mouseup', end);
+  canvas.addEventListener('mouseleave', end);
+  canvas.addEventListener('touchstart', start, {passive:false});
+  canvas.addEventListener('touchmove', move, {passive:false});
+  canvas.addEventListener('touchend', end);
+
+  function clearSignature() {
+    const rect = canvas.getBoundingClientRect();
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    ctx.fillStyle = '#fafafa';
+    ctx.fillRect(0, 0, rect.width, rect.height);
+    hasSignature = false;
+  }
+
+  // ====== إرسال البيانات ======
 document.getElementById('attendanceForm').addEventListener('submit', (e) => {
   e.preventDefault();
   
@@ -41,8 +251,11 @@ document.getElementById('attendanceForm').addEventListener('submit', (e) => {
   // إخفاء الرسالة بعد 3 ثوانٍ
   setTimeout(() => {
     msg.className = 'msg';
-  }, 3000);
+  }, 4500);
   
   // زر الإرسال جاهز فورًا للتسجيل التالي
   btn.disabled = false;
 });
+</script>
+</body>
+</html>

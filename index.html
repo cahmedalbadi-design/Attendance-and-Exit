@@ -63,6 +63,9 @@
     display: block;
     cursor: crosshair;
     touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
   }
   .clear-btn {
     position: absolute;
@@ -101,28 +104,29 @@
   }
   .msg.success { background: #d4edda; color: #155724; display: block; }
   .msg.error { background: #f8d7da; color: #721c24; display: block; }
+  .msg.info { background: #e2e3e5; color: #383d41; display: block; }
 </style>
 </head>
 <body>
   <div class="container">
     <h1>📋 تسجيل الحضور</h1>
-    
-    <form id="attendanceForm">
+
+    <form id="attendanceForm" autocomplete="off">
       <div class="field">
         <label>الرقم</label>
         <input type="text" id="number" required placeholder="أدخل الرقم">
       </div>
-      
+
       <div class="field">
         <label>الاسم</label>
         <input type="text" id="name" required placeholder="أدخل الاسم الكامل">
       </div>
-      
+
       <div class="field">
         <label>جهة العمل</label>
         <input type="text" id="department" required placeholder="أدخل جهة العمل / القسم">
       </div>
-      
+
       <div class="field">
         <label>التوقيع (ارسم بإصبعك أو الماوس)</label>
         <div class="signature-wrap">
@@ -130,132 +134,208 @@
           <button type="button" class="clear-btn" onclick="clearSignature()">مسح</button>
         </div>
       </div>
-      
+
       <button type="submit" class="submit-btn" id="submitBtn">تسجيل الحضور</button>
       <div id="msg" class="msg"></div>
     </form>
   </div>
 
 <script>
-  // ====== ضع رابط Google Apps Script هنا ======
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxv1gtriXQu2BpWC4eDWjPI9sO8fxfy9XOPK-_z9wTIEGYpwOoKoGunlA6Ht_Dggck/exec";
+/* ====== ضع رابط Google Apps Script هنا ====== */
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxv1gtriXQu2BpWC4eDWjPI9sO8fxfy9XOPK-_z9wTIEGYpwOoKoGunlA6Ht_Dggck/exec";
 
-  // ====== إعداد لوحة التوقيع ======
-  const canvas = document.getElementById('signature');
-  const ctx = canvas.getContext('2d');
-  let drawing = false;
-  let hasSignature = false;
+/* ================= لوحة التوقيع ================= */
+const canvas = document.getElementById('signature');
+const ctx = canvas.getContext('2d');
+let drawing = false;
+let hasSignature = false;
+let lastPoint = null;
 
-  function resizeCanvas() {
-    const ratio = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * ratio;
-    canvas.height = rect.height * ratio;
-    ctx.scale(ratio, ratio);
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = '#111';
-    ctx.fillStyle = '#fafafa';
-    ctx.fillRect(0, 0, rect.width, rect.height);
-  }
-  resizeCanvas();
+function setupCanvas() {
+  const ratio = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const w = Math.max(rect.width, 1);
+  const h = Math.max(rect.height, 1);
 
-  function getPos(e) {
-    const rect = canvas.getBoundingClientRect();
-    const point = e.touches ? e.touches[0] : e;
-    return {
-      x: point.clientX - rect.left,
-      y: point.clientY - rect.top
-    };
-  }
+  canvas.width  = Math.round(w * ratio);
+  canvas.height = Math.round(h * ratio);
 
-  function start(e) {
-    e.preventDefault();
-    drawing = true;
-    const p = getPos(e);
+  // setTransform بدل scale لتجنب تراكم التحويل عند إعادة الضبط
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#111111';
+
+  ctx.fillStyle = '#fafafa';
+  ctx.fillRect(0, 0, w, h);
+}
+
+function getPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const p = (e.touches && e.touches.length) ? e.touches[0] : e;
+  return { x: p.clientX - rect.left, y: p.clientY - rect.top };
+}
+
+function start(e) {
+  e.preventDefault();
+  drawing = true;
+  lastPoint = getPos(e);
+}
+
+function move(e) {
+  if (!drawing) return;
+  e.preventDefault();
+  const p = getPos(e);
+
+  // تجاهل القفزات الكبيرة (نادرًا ما تحدث على الجوال)
+  if (lastPoint) {
     ctx.beginPath();
-    ctx.moveTo(p.x, p.y);
-  }
-  function move(e) {
-    if (!drawing) return;
-    e.preventDefault();
-    const p = getPos(e);
+    ctx.moveTo(lastPoint.x, lastPoint.y);
     ctx.lineTo(p.x, p.y);
     ctx.stroke();
     hasSignature = true;
   }
-  function end(e) {
-    if (!drawing) return;
-    drawing = false;
-    ctx.closePath();
-  }
+  lastPoint = p;
+}
 
-  canvas.addEventListener('mousedown', start);
-  canvas.addEventListener('mousemove', move);
-  canvas.addEventListener('mouseup', end);
-  canvas.addEventListener('mouseleave', end);
-  canvas.addEventListener('touchstart', start, {passive:false});
-  canvas.addEventListener('touchmove', move, {passive:false});
-  canvas.addEventListener('touchend', end);
+function end(e) {
+  if (!drawing) return;
+  drawing = false;
+  lastPoint = null;
+}
 
-  function clearSignature() {
-    const rect = canvas.getBoundingClientRect();
-    ctx.clearRect(0, 0, rect.width, rect.height);
-    ctx.fillStyle = '#fafafa';
-    ctx.fillRect(0, 0, rect.width, rect.height);
-    hasSignature = false;
-  }
+canvas.addEventListener('mousedown', start);
+canvas.addEventListener('mousemove', move);
+canvas.addEventListener('mouseup', end);
+canvas.addEventListener('mouseleave', end);
+canvas.addEventListener('touchstart', start, { passive: false });
+canvas.addEventListener('touchmove', move,  { passive: false });
+canvas.addEventListener('touchend', end);
+canvas.addEventListener('touchcancel', end);
 
-  // ====== إرسال البيانات ======
-document.getElementById('attendanceForm').addEventListener('submit', (e) => {
+function clearSignature() {
+  const ratio = window.devicePixelRatio || 1;
+  const w = canvas.width / ratio;
+  const h = canvas.height / ratio;
+  ctx.fillStyle = '#fafafa';
+  ctx.fillRect(0, 0, w, h);
+  hasSignature = false;
+  lastPoint = null;
+}
+
+/* إعادة الضبط عند تدوير الشاشة فقط (وليس عند كل scroll) */
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => { setupCanvas(); hasSignature = false; }, 350);
+});
+
+/* ================= استخراج التوقيع مصغّرًا ================= */
+/* هذا هو أهم إصلاح: تصغير الصورة قبل الإرسال حتى لا يكبر الطلب */
+function getSignatureBase64() {
+  const MAX_WIDTH = 500;                     // عرض أقصى للصورة المرسلة
+  const srcW = canvas.width;
+  const srcH = canvas.height;
+
+  if (!srcW || !srcH) return '';
+
+  const scale = Math.min(1, MAX_WIDTH / srcW);
+  const outW = Math.max(1, Math.round(srcW * scale));
+  const outH = Math.max(1, Math.round(srcH * scale));
+
+  const tmp = document.createElement('canvas');
+  tmp.width = outW;
+  tmp.height = outH;
+  const tctx = tmp.getContext('2d');
+
+  // خلفية بيضاء (JPEG لا يدعم الشفافية)
+  tctx.fillStyle = '#ffffff';
+  tctx.fillRect(0, 0, outW, outH);
+  tctx.drawImage(canvas, 0, 0, outW, outH);
+
+  // JPEG بجودة 70% → حجم أصغر بكثير من PNG
+  const dataUrl = tmp.toDataURL('image/jpeg', 0.7);
+  const base64 = dataUrl.split(',')[1] || '';
+  return base64;
+}
+
+/* ================= إرسال البيانات ================= */
+document.getElementById('attendanceForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  
+
   const msg = document.getElementById('msg');
   const btn = document.getElementById('submitBtn');
-  msg.className = 'msg';
-  
-  const number = document.getElementById('number').value.trim();
-  const name = document.getElementById('name').value.trim();
+
+  const number     = document.getElementById('number').value.trim();
+  const name       = document.getElementById('name').value.trim();
   const department = document.getElementById('department').value.trim();
-  
+
   if (!hasSignature) {
     msg.textContent = '⚠️ يرجى إضافة التوقيع أولاً';
     msg.className = 'msg error';
     return;
   }
-  
-  const signatureBase64 = canvas.toDataURL('image/png').split(',')[1];
-  
-  // ✅ إرسال في الخلفية (بدون await)
+
+  const signatureBase64 = getSignatureBase64();
+  if (!signatureBase64) {
+    msg.textContent = '⚠️ تعذّر قراءة التوقيع، أعد المحاولة';
+    msg.className = 'msg error';
+    return;
+  }
+
+  btn.disabled = true;
+  msg.className = 'msg info';
+  msg.textContent = '⏳ جارٍ الإرسال...';
+
+  // ✅ البيانات داخل جسم الطلب (body) وليس في الرابط
   const params = new URLSearchParams();
   params.append('number', number);
   params.append('name', name);
   params.append('department', department);
   params.append('signature', signatureBase64);
-  
-  // Fire-and-forget — لا ننتظر الرد
-  fetch(SCRIPT_URL + '?' + params.toString(), {
-    method: 'POST',
-    mode: 'no-cors',
-    keepalive: true
-  }).catch(err => console.error('خطأ إرسال:', err));
-  
-  // ✅ إظهار النجاح فورًا + إعادة تعيين النموذج
-  msg.textContent = '✅ تم تسجيل الحضور بنجاح';
-  msg.className = 'msg success';
-  
-  document.getElementById('attendanceForm').reset();
-  clearSignature();
-  
-  // إخفاء الرسالة بعد 3 ثوانٍ
-  setTimeout(() => {
-    msg.className = 'msg';
-  }, 4500);
-  
-  // زر الإرسال جاهز فورًا للتسجيل التالي
+  params.append('mime', 'image/jpeg');
+
+  let ok = false;
+
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      body: params
+      // ⚠️ لا تستخدم keepalive هنا (حد 64KB وقد يفشل على الجوال)
+    });
+    ok = true;
+  } catch (err) {
+    console.error('fetch فشل:', err);
+
+    // بديل مضمون على الجوال
+    if (navigator.sendBeacon) {
+      try {
+        ok = navigator.sendBeacon(SCRIPT_URL, params);
+      } catch (e2) {
+        console.error('beacon فشل:', e2);
+      }
+    }
+  }
+
+  if (ok) {
+    msg.textContent = '✅ تم تسجيل الحضور بنجاح';
+    msg.className = 'msg success';
+
+    document.getElementById('attendanceForm').reset();
+    clearSignature();
+
+    setTimeout(() => { msg.className = 'msg'; }, 4500);
+  } else {
+    msg.textContent = '❌ فشل الإرسال، تأكد من الاتصال بالإنترنت وحاول مرة أخرى';
+    msg.className = 'msg error';
+  }
+
   btn.disabled = false;
 });
+
+/* التهيئة بعد جاهزية التخطيط */
+window.addEventListener('load', setupCanvas);
+setupCanvas();
 </script>
 </body>
 </html>

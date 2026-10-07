@@ -169,7 +169,78 @@
     margin-top: 8px;
     min-height: 18px;
   }
+
+  /* ====== صفحة النجاح ====== */
+  .success-page {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
+    padding: 20px;
+  }
+  .success-page.show { display: flex; }
+  .success-card {
+    background: #fff;
+    width: 100%;
+    max-width: 420px;
+    border-radius: 20px;
+    padding: 45px 30px;
+    text-align: center;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.35);
+    animation: popIn .4s cubic-bezier(.2,.8,.4,1.15);
+  }
+  .success-check {
+    width: 90px;
+    height: 90px;
+    margin: 0 auto 20px;
+    background: #d4edda;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    color: #28a745;
+    animation: popIn .5s ease .15s both;
+  }
+  .success-card h2 {
+    color: #155724;
+    font-size: 24px;
+    margin: 0 0 10px;
+  }
+  .success-card p {
+    color: #666;
+    font-size: 15px;
+    margin: 0 0 25px;
+  }
+  .success-info {
+    background: #f4f7fc;
+    border: 1px solid #e0e7f5;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 25px;
+    font-size: 14px;
+    color: #333;
+  }
+  .success-info div { padding: 4px 0; }
+  .success-info span { color: #888; margin-left: 6px; }
+  .new-entry-btn {
+    width: 100%;
+    padding: 13px;
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: .3s;
+  }
+  .new-entry-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(30,60,114,0.4); }
 </style>
+<base target="_blank">
 </head>
 <body>
   <div class="container">
@@ -498,14 +569,8 @@ showFieldError('⚠️ الرقم يجب أن يكون 8 أرقام بالضبط
   }
 
   if (ok) {
-    showResultModal(true, 'تم تسجيل الحضور بنجاح', 'شكراً لك', 1600);
-
-    form.reset();
-    clearSignature();
-
-    msg.textContent = '✅ تم تسجيل الحضور بنجاح';
-    msg.className = 'msg success';
-    setTimeout(() => { msg.className = 'msg'; }, 4000);
+    hideModal();
+    showSuccessPage(name, number, department);
   } else {
     showResultModal(false, 'فشل الإرسال', 'تأكد من الاتصال بالإنترنت وحاول مجدداً', 2600);
 
@@ -520,6 +585,36 @@ showFieldError('⚠️ الرقم يجب أن يكون 8 أرقام بالضبط
 /* التهيئة */
 window.addEventListener('load', setupCanvas);
 setupCanvas();
+
+function showSuccessPage(name, number, department) {
+  document.getElementById('spName').textContent   = name;
+  document.getElementById('spNumber').textContent = number;
+  document.getElementById('spDept').textContent   = department;
+  document.getElementById('successPage').classList.add('show');
+}
+
+document.getElementById('newEntryBtn').addEventListener('click', () => {
+  document.getElementById('successPage').classList.remove('show');
+  form.reset();
+  clearSignature();
+  msg.className = 'msg';
+});
 </script>
+
+  <!-- ====== صفحة النجاح ====== -->
+  <div class="success-page" id="successPage">
+    <div class="success-card">
+      <div class="success-check">✔</div>
+      <h2>تم تسجيل الحضور</h2>
+      <p>شكراً لك، تم حفظ بيانات حضورك بنجاح</p>
+      <div class="success-info">
+        <div><span>الاسم:</span><b id="spName"></b></div>
+        <div><span>رقم الهاتف:</span><b id="spNumber"></b></div>
+        <div><span>جهة العمل:</span><b id="spDept"></b></div>
+      </div>
+      <button type="button" class="new-entry-btn" id="newEntryBtn">تسجيل حضور جديد</button>
+    </div>
+  </div>
+
 </body>
 </html>
